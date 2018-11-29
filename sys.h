@@ -21,5 +21,8 @@ extern int sys_fork_loop(void (*l)(const char *), const char *n);
 
 extern void sys_sleep(int s);
 
+extern int sys_lock_tracing_buf(void);
+extern int sys_unlock_tracing_buf(void);
+
 #endif /* __SYS_H__ */
 
