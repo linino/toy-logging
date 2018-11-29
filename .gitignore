@@ -1,0 +1,8 @@
+bathos-build
+\#*
+.*
+*.o
+*~
+wifi-fw
+
+
