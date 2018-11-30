@@ -34,6 +34,8 @@ void *sys_setup_tracing_memory(unsigned int size)
 {
 	int fd, stat;
 	void *shm_area;
+	/* Get extra space for sys stuff */
+	int actual_size = size + 4096;
 
 	/* Setup the common memory area */
 	fd = open("/tmp/toy-logging", O_RDWR|O_CREAT, S_IRUSR|S_IWUSR);
@@ -43,12 +45,13 @@ void *sys_setup_tracing_memory(unsigned int size)
 		exit(5);
 	}
 	/* Resize shared memory area */
-	stat = fallocate(fd, 0, 0, size + 4096);
+	stat = fallocate(fd, 0, 0, actual_size);
 	if (stat < 0) {
 		fprintf(stderr, "resizing buffer: %s\n", strerror(errno));
 		exit(6);
 	}
-	shm_area = mmap(NULL, size, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
+	shm_area = mmap(NULL, actual_size, PROT_READ|PROT_WRITE, MAP_SHARED,
+			fd, 0);
 	if (shm_area == MAP_FAILED) {
 		fprintf(stderr, "mapping tmpfs buffer file: %s\n",
 			strerror(errno));
@@ -56,6 +59,7 @@ void *sys_setup_tracing_memory(unsigned int size)
 	}
 	close(fd);
 	memset(shm_area, 0, sizeof(*shm_area));
+	/* sys area is just after the common shared memory */
 	local_shared_area = (struct shared_data *)&((char *)shm_area)[size];
 	if (sem_init(&local_shared_area->bufsem, 1, 1) < 0) {
 		fprintf(stderr, "error inizializing buffer semaphore\n");
