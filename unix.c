@@ -13,6 +13,7 @@
 #include <sys/mman.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 #include <stdio.h>
 #include <semaphore.h>
 #include <errno.h>
@@ -68,6 +69,34 @@ void *sys_setup_tracing_memory(unsigned int size)
 	return shm_area;
 }
 
+/* Declare a unix specific event, which traces sigusr1 */
+struct sig_args {
+	struct timeval tv;
+};
+
+/* Callback for sig tracepoint. MUST return number of consumed bytes */
+int sig_cb(const struct traced_event *te, const void *_args)
+{
+	struct sig_args args;
+
+	memcpy(&args, _args, sizeof(args));
+
+	printf("EVENT %s -> TS = %ld.%06ld\n", te->name, args.tv.tv_sec,
+	       args.tv.tv_usec);
+	return sizeof(args);
+}
+
+int sig_copy_args(struct sig_args *_a, struct timeval tv)
+{
+	struct sig_args a;
+
+	a.tv = tv;
+	memcpy(_a, &a, sizeof(a));
+	return sizeof(a);
+}
+declare_trace_evt(sig, PROTO(struct timeval tv), tv);
+
+
 /* Enable / disable tracing */
 
 extern const struct traced_event event_name(test1);
@@ -75,7 +104,11 @@ extern const struct traced_event event_name(test2);
 
 void sigusr1_handler(int sig)
 {
-	printf("%s !\n", __func__);
+	struct timeval tv;
+
+	event_enable(&event_name(sig));
+	gettimeofday(&tv, NULL);
+	sig_trace(tv);
 	if (is_event_enabled(&event_name(test1)))
 		event_disable(&event_name(test1));
 	else
